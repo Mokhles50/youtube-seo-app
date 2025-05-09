@@ -6,4 +6,4 @@ services:
     startCommand: "python app.py"
     envVars:
       - key: YOUTUBE_API_KEY
-        value: AIzaSyA5I7yZWK8Nkxo9NblZvf4-DEPr--amoGM
+        value: AIzaSyDB3uRLRelUIy_4K3Im2NOGKDWzTbb7bCc
