@@ -2,75 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>YouTube SEO Keyword Generator</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #111;
-      color: #eee;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem;
-    }
+  <title>YouTube Keyword Tool</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>
+    function sortTable(n) {
+      const table = document.getElementById("resultTable");
+      let rows, switching = true, dir = "asc", switchcount = 0;
 
-    h1 {
-      margin-bottom: 1rem;
-    }
+      while (switching) {
+        switching = false;
+        rows = table.rows;
+        for (let i = 1; i < rows.length - 1; i++) {
+          let shouldSwitch = false;
+          let x = rows[i].getElementsByTagName("TD")[n];
+          let y = rows[i + 1].getElementsByTagName("TD")[n];
 
-    form {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 2rem;
-      width: 100%;
-      max-width: 500px;
-    }
+          let valX = isNaN(x.innerHTML) ? x.innerHTML.toLowerCase() : parseFloat(x.innerHTML);
+          let valY = isNaN(y.innerHTML) ? y.innerHTML.toLowerCase() : parseFloat(y.innerHTML);
 
-    input[type="text"] {
-      flex: 1;
-      padding: 0.7rem;
-      border-radius: 5px;
-      border: none;
-      font-size: 1rem;
+          if ((dir === "asc" && valX > valY) || (dir === "desc" && valX < valY)) {
+            shouldSwitch = true;
+            break;
+          }
+        }
+        if (shouldSwitch) {
+          rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+          switching = true;
+          switchcount++;
+        } else {
+          if (switchcount === 0 && dir === "asc") {
+            dir = "desc";
+            switching = true;
+          }
+        }
+      }
     }
-
-    button {
-      background: #1a73e8;
-      color: white;
-      padding: 0.7rem 1rem;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    ul {
-      list-style: none;
-      padding: 0;
-      width: 100%;
-      max-width: 600px;
-    }
-
-    li {
-      background: #222;
-      margin-bottom: 0.5rem;
-      padding: 0.75rem 1rem;
-      border-left: 4px solid #1a73e8;
-    }
-  </style>
+  </script>
 </head>
 <body>
-  <h1>YouTube SEO Keyword Generator</h1>
-  <form method="POST">
-    <input type="text" name="keyword" placeholder="Enter a topic..." value="{{ base }}" required>
-    <button type="submit">Generate</button>
-  </form>
+  <div class="container">
+    <h1>YouTube SEO Keyword Generator</h1>
+    <form method="POST">
+      <input type="text" name="keyword" placeholder="Enter a topic..." value="{{ base }}" required>
+      <button type="submit">Generate</button>
+    </form>
 
-  {% if keywords %}
-    <ul>
-      {% for keyword in keywords %}
-        <li>{{ keyword }}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
+    {% if keywords %}
+      <table id="resultTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)">Keyword</th>
+            <th onclick="sortTable(1)">Search Volume</th>
+            <th onclick="sortTable(2)">Difficulty</th>
+            <th onclick="sortTable(3)">Trending</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in keywords %}
+            <tr>
+              <td>{{ item.keyword }}</td>
+              <td>{{ item.volume }}</td>
+              <td>{{ item.difficulty }}</td>
+              <td>{{ item.trending }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </div>
 </body>
 </html>
