@@ -1,29 +1,57 @@
-from flask import Flask, request, render_template
-from difflib import SequenceMatcher
+# app.py
+from flask import Flask, render_template, request
+import requests
+import os
 
 app = Flask(__name__)
 
-def get_keywords(base_keyword):
-    related = [f"{base_keyword} tutorial", f"{base_keyword} 2025", f"how to {base_keyword}", f"{base_keyword} for beginners"]
-    data = []
-    for keyword in related:
-        difficulty = int(100 - SequenceMatcher(None, keyword, base_keyword).ratio() * 100)
-        data.append({
-            "keyword": keyword,
-            "search_volume": f"{1000 + difficulty * 20}",
-            "difficulty": difficulty,
-            "trend": "Rising" if difficulty < 50 else "Stable"
-        })
-    return sorted(data, key=lambda x: x["difficulty"])
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # Secure method for Render
 
-@app.route('/', methods=['GET', 'POST'])
+
+def get_youtube_keywords(query):
+    search_url = "https://www.googleapis.com/youtube/v3/search"
+    params = {
+        "part": "snippet",
+        "maxResults": 50,
+        "q": query,
+        "type": "video",
+        "key": YOUTUBE_API_KEY
+    }
+    response = requests.get(search_url, params=params)
+    results = []
+
+    if response.status_code == 200:
+        data = response.json()
+        for item in data.get("items", []):
+            title = item["snippet"]["title"]
+            description = item["snippet"]["description"]
+            results.append({
+                "title": title,
+                "description": description
+            })
+
+    # Simple keyword frequency analysis from titles
+    keyword_freq = {}
+    for result in results:
+        words = result["title"].lower().split()
+        for word in words:
+            if len(word) > 3:  # Filter short/common words
+                keyword_freq[word] = keyword_freq.get(word, 0) + 1
+
+    sorted_keywords = sorted(keyword_freq.items(), key=lambda x: x[1], reverse=True)
+
+    return [{"keyword": kw, "score": freq} for kw, freq in sorted_keywords[:50]]
+
+
+@app.route("/", methods=["GET", "POST"])
 def index():
     keyword_data = []
     base_keyword = ""
-    if request.method == 'POST':
-        base_keyword = request.form['keyword']
-        keyword_data = get_keywords(base_keyword)
-    return render_template('index.html', keywords=keyword_data, base=base_keyword)
+    if request.method == "POST":
+        base_keyword = request.form.get("keyword")
+        keyword_data = get_youtube_keywords(base_keyword)
+    return render_template("index.html", keywords=keyword_data, base=base_keyword)
+
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0")
+    app.run(debug=True)
