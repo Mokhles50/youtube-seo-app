@@ -1,62 +1,52 @@
-# app.py
 from flask import Flask, render_template, request
-import requests
 import os
+import requests
 
 app = Flask(__name__)
 
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # Secure method for Render
-
+# Get YouTube API key from environment variable
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
 def get_youtube_keywords(query):
-    search_url = "https://www.googleapis.com/youtube/v3/search"
+    url = "https://www.googleapis.com/youtube/v3/search"
     params = {
         "part": "snippet",
-        "maxResults": 50,
         "q": query,
         "type": "video",
-        "key": YOUTUBE_API_KEY
+        "maxResults": 50,
+        "key": YOUTUBE_API_KEY,
     }
-    response = requests.get(search_url, params=params)
-    results = []
 
-    if response.status_code == 200:
-        data = response.json()
-        for item in data.get("items", []):
-            title = item["snippet"]["title"]
-            description = item["snippet"]["description"]
-            results.append({
-                "title": title,
-                "description": description
-            })
+    response = requests.get(url, params=params)
 
-    # Simple keyword frequency analysis from titles
-    keyword_freq = {}
-    for result in results:
-        words = result["title"].lower().split()
-        for word in words:
-            if len(word) > 3:  # Filter short/common words
-                keyword_freq[word] = keyword_freq.get(word, 0) + 1
+    # DEBUG LOGGING: print the raw API response to Render logs
+    print("YouTube API Response:", response.status_code, response.text)
 
-    sorted_keywords = sorted(keyword_freq.items(), key=lambda x: x[1], reverse=True)
+    if response.status_code != 200:
+        return []
 
-    return [{"keyword": kw, "score": freq} for kw, freq in sorted_keywords[:50]]
+    data = response.json()
+    keywords = []
 
+    for item in data.get("items", []):
+        title = item["snippet"]["title"]
+        score = min(100, len(title))  # Fake score logic (adjust if needed)
+        keywords.append({"keyword": title, "score": score})
+
+    return keywords
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     keyword_data = []
     base_keyword = ""
+
     if request.method == "POST":
-        base_keyword = request.form.get("keyword")
-        keyword_data = get_youtube_keywords(base_keyword)
+        base_keyword = request.form.get("keyword", "")
+        if base_keyword:
+            keyword_data = get_youtube_keywords(base_keyword)
+
     return render_template("index.html", keywords=keyword_data, base=base_keyword)
-
-
-import os
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-    print("YouTube API Response:", response.status_code, response.text)
-
