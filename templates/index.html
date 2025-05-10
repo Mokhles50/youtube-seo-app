@@ -1,80 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>YouTube Keyword Tool</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script>
-    function sortTable(n) {
-      const table = document.getElementById("resultTable");
-      let rows, switching = true, dir = "asc", switchcount = 0;
-
-      while (switching) {
-        switching = false;
-        rows = table.rows;
-        for (let i = 1; i < rows.length - 1; i++) {
-          let shouldSwitch = false;
-          let x = rows[i].getElementsByTagName("TD")[n];
-          let y = rows[i + 1].getElementsByTagName("TD")[n];
-
-          let valX = isNaN(x.textContent) ? x.textContent.toLowerCase() : parseFloat(x.textContent);
-          let valY = isNaN(y.textContent) ? y.textContent.toLowerCase() : parseFloat(y.textContent);
-
-          if ((dir === "asc" && valX > valY) || (dir === "desc" && valX < valY)) {
-            shouldSwitch = true;
-            break;
-          }
-        }
-        if (shouldSwitch) {
-          rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-          switching = true;
-          switchcount++;
-        } else {
-          if (switchcount === 0 && dir === "asc") {
-            dir = "desc";
-            switching = true;
-          }
-        }
-      }
-    }
-  </script>
+    <meta charset="UTF-8">
+    <title>YouTube SEO Keyword Tool</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>YouTube SEO Keyword Generator</h1>
-    <form method="POST">
-      <input type="text" name="keyword" placeholder="Enter a topic..." value="{{ base }}" required>
-      <button type="submit">Generate</button>
-    </form>
-
-    {% if keywords %}
-      <table id="resultTable">
-        <thead>
-          <tr>
-            <th onclick="sortTable(0)">Keyword</th>
-            <th onclick="sortTable(1)">Search Volume</th>
-            <th onclick="sortTable(2)">Difficulty</th>
-            <th onclick="sortTable(3)">Trending</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in keywords %}
-            <tr>
-              <td>{{ item.keyword }}</td>
-              <td>{{ item.volume }}</td>
-              <td>
-                <div class="meter-container">
-                  <div class="meter" style="width: {{ item.difficulty }}%; background-color: hsl({{ 120 - item.difficulty * 1.2 }}, 100%, 50%)">
-                    {{ item.difficulty }}
-                  </div>
-                </div>
-              </td>
-              <td>{{ item.trending }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% endif %}
-  </div>
+    <div class="container">
+        <h1>YouTube Keyword Explorer</h1>
+        <form method="POST" action="/keywords">
+            <input type="text" name="query" placeholder="Enter a keyword" required>
+            <button type="submit">Search</button>
+        </form>
+        {% if results %}
+            <h2>Keyword Results</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Keyword</th>
+                        <th>Search Volume</th>
+                        <th>Difficulty</th>
+                        <th>Trend</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in results %}
+                    <tr>
+                        <td>{{ item.keyword }}</td>
+                        <td>{{ item.volume }}</td>
+                        <td>{{ item.difficulty }}</td>
+                        <td>{{ item.trend }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
 </body>
 </html>
