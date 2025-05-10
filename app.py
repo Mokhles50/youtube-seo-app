@@ -1,72 +1,82 @@
 from flask import Flask, render_template, request
-from pytrends.request import TrendReq
-from googleapiclient.discovery import build
 import requests
+import os
+from pytrends.request import TrendReq
 import random
 
 app = Flask(__name__)
 
-# Your YouTube API Key
-YOUTUBE_API_KEY = "AIzaSyDB3uRLRelUIy_4K3Im2NOGKDWzTbb7bCc"
+YOUTUBE_API_KEY = 'AIzaSyDB3uRLRelUIy_4K3Im2NOGKDWzTbb7bCc'
 
-# Initialize YouTube and Google Trends clients
-youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
-pytrends = TrendReq(hl='en-US', tz=360)
-
+# Function to get YouTube keyword suggestions (expanded with variations)
 def get_youtube_keywords(query):
+    suggestions = set()
+
+    # Main keyword
     suggest_url = f'https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q={query}'
     res = requests.get(suggest_url)
-    suggestions = res.json()[1] if res.status_code == 200 else []
-    return suggestions[:50]
+    if res.status_code == 200:
+        suggestions.update(res.json()[1])
 
-def get_search_volume(keyword):
-    return random.randint(1000, 100000)  # Placeholder unless you integrate a real service
+    # Expanded suggestions (a–z)
+    for char in 'abcdefghijklmnopqrstuvwxyz':
+        res = requests.get(f'https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q={query} {char}')
+        if res.status_code == 200:
+            suggestions.update(res.json()[1])
+        if len(suggestions) >= 50:
+            break
 
+    return list(suggestions)[:50]
+
+# Simulated function to estimate search volume (replace with real data source if needed)
+def estimate_search_volume(keyword):
+    return random.randint(1000, 500000)
+
+# Estimate difficulty based on video count
+def estimate_difficulty(keyword):
+    search_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={keyword}&type=video&key={YOUTUBE_API_KEY}'
+    res = requests.get(search_url)
+    items = res.json().get('items', [])
+    count = len(items)
+    difficulty = min(100, int((count / 50) * 100))  # 0–100 scale
+    return difficulty
+
+# Check trending status using Google Trends
 def is_trending(keyword):
     try:
+        pytrends = TrendReq(hl='en-US', tz=360)
         pytrends.build_payload([keyword], cat=0, timeframe='now 7-d', geo='', gprop='youtube')
         data = pytrends.interest_over_time()
-        if not data.empty and data[keyword].iloc[-1] > data[keyword].mean():
-            return "Yes"
+        if not data.empty:
+            trend = data[keyword].iloc[-1]
+            return "Yes" if trend > data[keyword].mean() else "No"
+        return "No"
     except:
-        pass
-    return "No"
+        return "No"
 
-def get_difficulty(keyword):
-    try:
-        results = youtube.search().list(
-            q=keyword,
-            part='id',
-            type='video',
-            maxResults=50
-        ).execute()
-        total = len(results.get("items", []))
-        score = max(1, min(100, 100 - total * 2))  # The fewer results, the easier
-        return score
-    except:
-        return random.randint(30, 90)
-
-@app.route('/', methods=['GET', 'POST'])
+@app.route("/", methods=["GET", "POST"])
 def index():
     keyword_data = []
-    base_keyword = ''
+    base_keyword = ""
 
-    if request.method == 'POST':
-        base_keyword = request.form['keyword']
-        suggestions = get_youtube_keywords(base_keyword)
+    if request.method == "POST":
+        base_keyword = request.form["keyword"]
+        keywords = get_youtube_keywords(base_keyword)
 
-        for keyword in suggestions:
-            volume = get_search_volume(keyword)
-            difficulty = get_difficulty(keyword)
-            trending = is_trending(keyword)
+        for kw in keywords:
+            volume = estimate_search_volume(kw)
+            difficulty = estimate_difficulty(kw)
+            trending = is_trending(kw)
+
             keyword_data.append({
-                'keyword': keyword,
-                'volume': volume,
-                'difficulty': difficulty,
-                'trending': trending
+                "keyword": kw,
+                "volume": volume,
+                "difficulty": difficulty,
+                "trending": trending
             })
 
-    return render_template('index.html', keywords=keyword_data, base=base_keyword)
+    return render_template("index.html", keywords=keyword_data, base=base_keyword)
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=10000)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(debug=True, host="0.0.0.0", port=port)
