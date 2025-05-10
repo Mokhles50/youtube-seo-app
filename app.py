@@ -83,4 +83,8 @@ if __name__ == "__main__":
     @app.route("/blog/best-tool")
 def blog_best_tool():
     return render_template("blog/best-tool.html")
+    @app.route("/blog/best-tool")
+def blog_best_tool():
+    return render_template("blog/best-tool.html")
+
 
