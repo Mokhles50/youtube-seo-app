@@ -1,2 +1,4 @@
-flask
+Flask
 requests
+pytrends
+google-api-python-client
