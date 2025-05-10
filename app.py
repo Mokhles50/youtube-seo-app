@@ -1,64 +1,54 @@
 from flask import Flask, render_template, request
-import requests
 from pytrends.request import TrendReq
 from bs4 import BeautifulSoup
+import requests
+import os
 
 app = Flask(__name__)
 
-YOUTUBE_API_KEY = "AIzaSyDB3uRLRelUIy_4K3Im2NOGKDWzTbb7bCc"
+def get_trending_status(keyword):
+    pytrends = TrendReq(hl='en-US', tz=360)
+    pytrends.build_payload([keyword], cat=0, timeframe='now 7-d', geo='', gprop='')
+    data = pytrends.interest_over_time()
+    if not data.empty and keyword in data.columns:
+        recent = data[keyword].values[-3:]
+        trend = "Rising" if all(x <= y for x, y in zip(recent, recent[1:])) else "Stable" if recent[-1] == recent[0] else "Falling"
+    else:
+        trend = "Unknown"
+    return trend
 
-def fetch_youtube_keywords(query):
-    url = f"https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q={query}"
-    response = requests.get(url)
-    suggestions = response.json()[1]
-    return suggestions[:50]  # Top 50 suggestions
+def get_youtube_keywords(query):
+    url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+    html = requests.get(url).text
+    soup = BeautifulSoup(html, 'html.parser')
+    keywords = []
+    for tag in soup.find_all('a'):
+        title = tag.get('title')
+        if title and query.lower() in title.lower():
+            keywords.append(title)
+    return list(set(keywords))[:50]
 
-def estimate_search_volume(keyword):
-    # Dummy logic — can be replaced with real data
-    return len(keyword) * 1000
+@app.route('/')
+def home():
+    return render_template('index.html')
 
-def estimate_difficulty(keyword):
-    search_url = f"https://www.youtube.com/results?search_query={keyword}"
-    response = requests.get(search_url)
-    soup = BeautifulSoup(response.text, "html.parser")
-    results_count = len(soup.find_all("a"))
-    score = min(max((results_count / 100), 1), 100)
-    return round(score, 2)
+@app.route('/keywords', methods=['POST'])
+def keywords():
+    query = request.form['query']
+    keywords = get_youtube_keywords(query)
+    keyword_data = []
+    for keyword in keywords:
+        trend = get_trending_status(keyword)
+        difficulty = max(0, min(100, 100 - len(keyword) * 2))  # Simulated difficulty
+        keyword_data.append({
+            'keyword': keyword,
+            'volume': 1000 + len(keyword) * 10,
+            'difficulty': difficulty,
+            'trend': trend
+        })
+    keyword_data.sort(key=lambda x: x['difficulty'])
+    return render_template('index.html', keyword_data=keyword_data, query=query)
 
-def is_trending(keyword):
-    pytrends = TrendReq()
-    try:
-        pytrends.build_payload([keyword], timeframe='now 7-d')
-        data = pytrends.interest_over_time()
-        if not data.empty:
-            return data[keyword].iloc[-1] > data[keyword].iloc[0]
-    except:
-        return False
-    return False
-
-@app.route("/", methods=["GET", "POST"])
-def index():
-    results = []
-    if request.method == "POST":
-        keyword = request.form["keyword"]
-        suggestions = fetch_youtube_keywords(keyword)
-        for suggestion in suggestions:
-            volume = estimate_search_volume(suggestion)
-            difficulty = estimate_difficulty(suggestion)
-            trending = is_trending(suggestion)
-            results.append({
-                "keyword": suggestion,
-                "volume": volume,
-                "difficulty": difficulty,
-                "trending": trending
-            })
-        results.sort(key=lambda x: x["difficulty"])  # Default sort
-    return render_template("index.html", results=results)
-
-@app.route("/blog/best-tool")
-def blog_best_tool():
-    return render_template("blog/best-tool.html")
-
-if __name__ == "__main__":
-    app.run(debug=True)
- 
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
