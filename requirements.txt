@@ -2,3 +2,4 @@ Flask
 requests
 pytrends
 google-api-python-client
+beautifulsoup4
